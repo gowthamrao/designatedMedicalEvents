@@ -10,7 +10,7 @@ ohdsiPlDmeCohortIds <- c(
   207,
   210,
   211,
-  213,
+  # 213,deprecated
   216,
   218,
   219,
@@ -35,7 +35,8 @@ ohdsiPlDmeCohortIds <- c(
   737,
   739,
   741,
-  747
+  747,
+  1316
 ) |> sort() |> unique()
 
 
@@ -68,7 +69,7 @@ cohortTableNames <- CohortGenerator::getCohortTableNames(cohortTable = projectNa
 
 
 OhdsiHelpers::executeCohortGenerationInParallel(
-  cdmSources = cdmSources,databaseIds = "healthverity_cc",
+  cdmSources = cdmSources,
   cohortDefinitionSet = cohortDefinitionSet,
   outputFolder = file.path(baseFolder, "CohortGenerator"),
   cohortTableNames = cohortTableNames
@@ -80,4 +81,21 @@ OhdsiHelpers::executeCohortDiagnosticsInParallel(
   cohortDefinitionSet = cohortDefinitionSet,
   outputFolder = file.path(baseFolder, "CohortDiagnostics"),
   cohortTableNames = cohortTableNames
+)
+
+CohortDiagnostics::createMergedResultsFile(
+  dataFolder = file.path(baseFolder, "CohortDiagnostics"),
+  sqliteDbPath = file.path(baseFolder, "CohortDiagnostics", "MergedCohortDiagnosticsData.sqlite"), 
+  overwrite = TRUE
+)
+
+
+CohortDiagnostics::createDiagnosticsExplorerZip(
+  outputZipfile = file.path(baseFolder, "CohortDiagnostics", "DiagnosticsExplorer.zip"),
+  sqliteDbPath = file.path(
+    baseFolder,
+    "CohortDiagnostics",
+    "MergedCohortDiagnosticsData.sqlite"
+  ),
+  overwrite = TRUE
 )
