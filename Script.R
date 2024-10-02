@@ -6,11 +6,13 @@ dir.create(path = baseFolder,
 
 activeProjectFolder <- rstudioapi::getActiveDocumentContext()$path |> dirname()
 
-ohdsiPlDmeCohortIds <- c(
+remotes::install_github("OHDSI/PhenotypeLibrary", ref = "v3.34.0")
+
+dmeCohortsSelectedManually <- c(
   207,
   210,
   211,
-  # 213,deprecated
+  # 213,deprecated, replaced with 1316
   216,
   218,
   219,
@@ -39,21 +41,14 @@ ohdsiPlDmeCohortIds <- c(
   1316
 ) |> sort() |> unique()
 
-
-
-ROhdsiWebApi::authorizeWebApi(
-  baseUrl = "https://atlas-phenotype.ohdsi.org/WebAPI",
-  authMethod = "db",
-  webApiUsername = Sys.getenv('ohdsiAtlasPhenotypeUser'),
-  webApiPassword = Sys.getenv('ohdsiAtlasPhenotypePassword')
-)
+dmePhenotypes <- PhenotypeLibrary::getPhenotypeLog() |>
+  dplyr::filter(stringr::str_detect(string = tolower(hashTag), pattern = "dme")) |>
+  dplyr::arrange(cohortId) |>
+  dplyr::filter(cohortId %in% dmeCohortsSelectedManually)
 
 
 #get cohort definition set----
-cohortDefinitionSet <- ROhdsiWebApi::exportCohortDefinitionSet(baseUrl = "https://atlas-phenotype.ohdsi.org/WebAPI",
-                                                               cohortIds = ohdsiPlDmeCohortIds,
-                                                               generateStats = TRUE) |>
-  dplyr::select(colnames(CohortGenerator::createEmptyCohortDefinitionSet()))
+cohortDefinitionSet <- PhenotypeLibrary::getPlCohortDefinitionSet(cohortIds = dmePhenotypes$cohortId)
 
 saveRDS(
   object = cohortDefinitionSet,
@@ -68,13 +63,12 @@ cohortDefinitionSet <- readRDS(file.path(activeProjectFolder, "CohortDefinitionS
 cohortTableNames <- CohortGenerator::getCohortTableNames(cohortTable = projectName)
 
 
-OhdsiHelpers::executeCohortGenerationInParallel(
+ParallelExecution::executeCohortGenerationInParallel(
   cdmSources = cdmSources,
   cohortDefinitionSet = cohortDefinitionSet,
   outputFolder = file.path(baseFolder, "CohortGenerator"),
-  cohortTableNames = cohortTableNames
+  cohortTableBaseName = projectName
 )
-
 
 OhdsiHelpers::executeCohortDiagnosticsInParallel(
   cdmSources = cdmSources,
@@ -85,10 +79,13 @@ OhdsiHelpers::executeCohortDiagnosticsInParallel(
 
 CohortDiagnostics::createMergedResultsFile(
   dataFolder = file.path(baseFolder, "CohortDiagnostics"),
-  sqliteDbPath = file.path(baseFolder, "CohortDiagnostics", "MergedCohortDiagnosticsData.sqlite"), 
+  sqliteDbPath = file.path(
+    baseFolder,
+    "CohortDiagnostics",
+    "MergedCohortDiagnosticsData.sqlite"
+  ),
   overwrite = TRUE
 )
-
 
 CohortDiagnostics::createDiagnosticsExplorerZip(
   outputZipfile = file.path(baseFolder, "CohortDiagnostics", "DiagnosticsExplorer.zip"),
